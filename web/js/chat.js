@@ -194,27 +194,53 @@
     appendUserMessage(text);
     setLoading(true);
 
-    fetch("/api/ai/ask", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query: text })
-    })
-      .then(function (res) {
-        return res.json().then(function (data) {
-          return { status: res.status, data: data };
+    var postFn = function (endpoint, body) {
+      if (window.MPSSession && typeof window.MPSSession.post === "function") {
+        return window.MPSSession.post(endpoint, body);
+      }
+      return fetch(endpoint, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "X-MPS": "1" },
+        body: JSON.stringify(body || {})
+      }).then(function (res) {
+        return res.text().then(function (text) {
+          var data;
+          try {
+            data = JSON.parse(text);
+          } catch (e) {
+            var msg = "HTTP " + res.status;
+            if (text && text.indexOf("<title>") >= 0) {
+              var m = text.match(/<title>([^<]+)<\/title>/i);
+              if (m) msg += " (" + m[1].trim() + ")";
+            } else if (text && text.length < 200) {
+              msg += ": " + text.trim();
+            }
+            throw new Error(msg);
+          }
+          if (!res.ok) {
+            var err = new Error((data && (data.error || data.answer)) || ("HTTP " + res.status));
+            err.data = data;
+            throw err;
+          }
+          return data;
         });
-      })
-      .then(function (res) {
+      });
+    };
+
+    postFn("api/ai/ask", { query: text })
+      .then(function (data) {
         setLoading(false);
-        if (res.data) {
-          appendAssistantResponse(res.data);
+        if (data) {
+          appendAssistantResponse(data);
         } else {
           appendErrorMessage("Empty response received from server.");
         }
       })
       .catch(function (err) {
         setLoading(false);
-        appendErrorMessage("Failed to contact query assistant: " + (err.message || err));
+        var msg = (err && err.data && err.data.answer) ? err.data.answer : (err && err.message ? err.message : String(err));
+        appendErrorMessage("Failed to contact query assistant: " + msg);
       });
   }
 

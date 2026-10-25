@@ -837,11 +837,8 @@ window.MPSUI = (function () {
     popup.appendChild(week);
     popup.appendChild(grid);
 
-    if (parent) {
-      parent.appendChild(popup);
-    } else {
-      document.body.appendChild(popup);
-    }
+    // Always append popup to document.body so it is never clipped or mispositioned by container overflow
+    document.body.appendChild(popup);
 
     var MONTH_NAMES = [
       "January", "February", "March", "April", "May", "June",
@@ -920,11 +917,37 @@ window.MPSUI = (function () {
       return el;
     }
 
+    function updatePosition() {
+      if (!isOpen && popup.hidden) return;
+      var rect = input.getBoundingClientRect();
+      var popW = 280;
+      var popH = 330;
+
+      // Align horizontally with the input, clamped inside viewport
+      var left = rect.left;
+      if (left + popW > window.innerWidth - 12) {
+        left = window.innerWidth - popW - 12;
+      }
+      if (left < 12) left = 12;
+
+      // Position directly below the input (or flip above if near bottom)
+      var top = rect.bottom + 6;
+      if (top + popH > window.innerHeight - 12 && rect.top > popH + 12) {
+        top = rect.top - popH - 6;
+      }
+
+      popup.style.top = Math.round(top) + "px";
+      popup.style.left = Math.round(left) + "px";
+    }
+
     function open() {
       if (isOpen) return;
       initViewDate();
       paint();
       popup.hidden = false;
+      updatePosition();
+      window.addEventListener("scroll", updatePosition, true);
+      window.addEventListener("resize", updatePosition);
       setTimeout(function () {
         popup.classList.add("open");
       }, 10);
@@ -934,6 +957,8 @@ window.MPSUI = (function () {
     function close() {
       if (!isOpen) return;
       popup.classList.remove("open");
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
       isOpen = false;
       setTimeout(function () {
         if (!isOpen) popup.hidden = true;

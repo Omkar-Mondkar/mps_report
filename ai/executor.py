@@ -83,7 +83,21 @@ def _execute_otr_snapshot(spec, cfg, scope):
     top_n = spec.get('top_n', 20)
     intent = spec.get('intent')
 
-    scan = otr.scan_otr(cfg)
+    try:
+        scan = otr.scan_otr(cfg)
+    except OSError as e:
+        return {
+            "intent": intent,
+            "summary": f"Could not read OTR data directory (`{cfg.get('otr_dir')}`): {e}",
+            "table": {"columns": [], "rows": []},
+            "chart": None,
+            "ui_action": None
+        }
+
+    # If server_ip was not specified or not in scan, pick first available server
+    if (not server_ip or server_ip not in scan) and scan:
+        server_ip = sorted(scan.keys())[0]
+
     days_map = scan.get(server_ip, {})
     if not days_map:
         return {
@@ -257,7 +271,20 @@ def _execute_otr_consecutive(spec, cfg, scope):
     exchange = spec.get('exchange')
     segment = spec.get('segment')
 
-    scan = otr.scan_otr(cfg)
+    try:
+        scan = otr.scan_otr(cfg)
+    except OSError as e:
+        return {
+            "intent": "otr_consecutive",
+            "summary": f"Could not read OTR data directory (`{cfg.get('otr_dir')}`): {e}",
+            "table": {"columns": [], "rows": []},
+            "chart": None,
+            "ui_action": None
+        }
+
+    if (not server_ip or server_ip not in scan) and scan:
+        server_ip = sorted(scan.keys())[0]
+
     days_map = scan.get(server_ip, {})
     all_dates = sorted(days_map.keys(), reverse=True)
 

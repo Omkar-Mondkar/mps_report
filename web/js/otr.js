@@ -770,15 +770,6 @@
     D.dateIn = el("input", "mdate");
     D.dateIn.id = "otr-date";
     D.dateIn.placeholder = "Select date\u2026";
-    D.dateCal = UI.calendar(D.dateIn, {
-      onChange: function (v) {
-        if (!ISO_RE.test(v || "")) {
-          D.dateIn.value = S.sel ? S.sel.date : "";
-          return;
-        }
-        if (S.sel && v !== S.sel.date) chooseDate(v);
-      },
-    });
     D.next = button("\u203a", null, function () {
       stepDate(1);
     });
@@ -788,6 +779,15 @@
     db.appendChild(D.prev);
     db.appendChild(D.dateIn);
     db.appendChild(D.next);
+    D.dateCal = UI.calendar(D.dateIn, {
+      onChange: function (v) {
+        if (!ISO_RE.test(v || "")) {
+          D.dateIn.value = S.sel ? S.sel.date : "";
+          return;
+        }
+        if (S.sel && v !== S.sel.date) chooseDate(v);
+      },
+    });
     controls.appendChild(field("Server", sv.box));
     controls.appendChild(field("Date", db)).firstChild.htmlFor = "otr-date";
     controls.appendChild(field("Time", tm.box));

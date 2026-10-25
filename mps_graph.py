@@ -63,7 +63,7 @@ CSP = ("default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline';
 CSP_AUTH = CSP + "; form-action 'self'; frame-ancestors 'none'"
 PAGES = ('/', '/index.html')
 API_PATHS = ('/api/servers', '/api/reports', '/api/dates', '/api/data',
-             '/api/otr/files', '/api/otr/data')
+             '/api/otr/files', '/api/otr/data', '/api/ai/ask')
 POST_ROUTES = ('/auth/login', '/auth/logout', '/auth/password')
 
 
@@ -145,6 +145,9 @@ class Handler(BaseHTTPRequestHandler):
             m = STATIC_RE.match(url.path)
             if m:
                 return self._static(m.group(1))
+
+            if url.path == '/api/ai/ask' or url.path.endswith('/api/ai/ask'):
+                return self._json({'ok': False, 'error': 'Method not allowed. Use POST /api/ai/ask'}, 405)
 
             if auth is None:                    # access control off: the original path
                 if url.path in PAGES:
@@ -242,37 +245,51 @@ class Handler(BaseHTTPRequestHandler):
         url = urlparse(self.path)
         auth = getattr(self.server, 'auth', None)
 
-        if url.path == '/api/ai/ask':
+        if url.path == '/api/ai/ask' or url.path.endswith('/api/ai/ask'):
             try:
-                length = int(self.headers.get('Content-Length') or 0)
-            except ValueError:
-                length = -1
-            if length <= 0 or length > 65536:
-                return self._json({'error': 'Invalid request body'}, 400)
-            try:
-                raw_body = self.rfile.read(length)
-                body = json.loads(raw_body.decode('utf-8'))
-            except Exception:
-                return self._json({'error': 'Invalid JSON body'}, 400)
-
-            user = None
-            scope = None
-            if auth is not None:
                 try:
-                    user, _ = auth.principal(self.headers.get('Cookie'))
+                    length = int(self.headers.get('Content-Length') or 0)
+                except ValueError:
+                    length = -1
+                if length <= 0 or length > 65536:
+                    return self._json({'ok': False, 'error': 'Invalid request body', 'answer': '**Error**: Invalid request body.'}, 200)
+                try:
+                    raw_body = self.rfile.read(length)
+                    body = json.loads(raw_body.decode('utf-8'))
                 except Exception:
-                    user = None
-                if user is None and auth.enforcing:
-                    return self._json({'error': 'Sign in required'}, 401)
-                scope = user['scope'] if (user and auth.enforcing) else None
+                    return self._json({'ok': False, 'error': 'Invalid JSON body', 'answer': '**Error**: Invalid JSON in request.'}, 200)
 
-            query_text = body.get('query', '')
-            res = ai_service.handle_ask(query_text, self.server.cfg, scope=scope)
-            login = user['login'] if user else 'anonymous'
-            took_ms = res.get('meta', {}).get('took_ms', 0)
-            src = res.get('meta', {}).get('source', '')
-            print("[AI Query] user=%s src=%s took=%.1fms query=%r" % (login, src, took_ms, query_text[:60]))
-            return self._json(res, 200 if res.get('ok') else 400)
+                user = None
+                scope = None
+                if auth is not None:
+                    try:
+                        user, _ = auth.principal(self.headers.get('Cookie'))
+                    except Exception:
+                        user = None
+                    if user is None and auth.enforcing:
+                        return self._json({'ok': False, 'error': 'Sign in required', 'answer': '**Error**: Sign in required.'}, 401)
+                    scope = user['scope'] if (user and auth.enforcing) else None
+
+                query_text = body.get('query', '')
+                res = ai_service.handle_ask(query_text, self.server.cfg, scope=scope)
+                login = user.get('login') if (user and isinstance(user, dict) and 'login' in user) else 'anonymous'
+                took_ms = res.get('meta', {}).get('took_ms', 0) if isinstance(res, dict) else 0
+                src = res.get('meta', {}).get('source', '') if isinstance(res, dict) else ''
+                print("[AI Query] user=%s src=%s took=%.1fms query=%r" % (login, src, took_ms, query_text[:60]))
+                return self._json(res, 200)
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                err_msg = f"Server error: {e}"
+                return self._json({
+                    'ok': False,
+                    'error': err_msg,
+                    'answer': f"**Error**: {err_msg}",
+                    'table': {'columns': [], 'rows': []},
+                    'chart': None,
+                    'ui_action': None,
+                    'meta': {'took_ms': 0, 'source': 'error'}
+                }, 200)
 
         if auth is None or not (url.path in POST_ROUTES or url.path.startswith(adminapi.PREFIX)):
             return self._send(404, b'Not found', 'text/plain')

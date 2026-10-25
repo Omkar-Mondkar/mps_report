@@ -385,17 +385,17 @@ input[type="time"]:focus,
   background: #182238;
 }
 .mps-cal-popup {
-  position: absolute;
-  top: calc(100% + 6px);
+  position: fixed;
+  top: 0;
   left: 0;
   width: 280px;
-  max-width: calc(100vw - 32px);
+  max-width: calc(100vw - 24px);
   background: #10172a;
   border: 1px solid #33446b;
   border-radius: 10px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.75);
   padding: 12px;
-  z-index: 60;
+  z-index: 1000;
   opacity: 0;
   visibility: hidden;
   transform: translateY(-6px) scale(0.97);
