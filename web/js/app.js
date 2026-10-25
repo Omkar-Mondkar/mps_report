@@ -277,10 +277,17 @@
       : "";
   }
 
+  var dateCal = UI.calendar($("dateIn"), {
+    onChange: function (iso) {
+      setDate(iso);
+    },
+  });
+
   function setDate(iso) {
     if (!ISO_RE.test(iso || "")) return;
     state.date = iso;
     $("dateIn").value = iso;
+    dateCal.setValue(iso);
     start();
   }
   function neighbor(dir) {
@@ -297,6 +304,7 @@
   function updateNav() {
     $("dPrev").disabled = !state.date || !neighbor(-1);
     $("dNext").disabled = !state.date || !neighbor(1);
+    dateCal.setAvailableDates(state.dates);
   }
   $("dPrev").onclick = function () {
     var d = neighbor(-1);

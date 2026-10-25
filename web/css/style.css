@@ -311,7 +311,8 @@ footer {
   }
 }
 input[type="date"],
-input[type="time"] {
+input[type="time"],
+.mdate {
   background: var(--panel2);
   color: var(--text);
   border: 1px solid var(--line);
@@ -327,17 +328,20 @@ input[type="time"] {
     box-shadow 0.15s;
 }
 input[type="date"]:hover,
-input[type="time"]:hover {
+input[type="time"]:hover,
+.mdate:hover {
   border-color: #4a5d8a;
 }
 input[type="date"]:focus,
-input[type="time"]:focus {
+input[type="time"]:focus,
+.mdate:focus {
   border-color: #4c7be0;
   box-shadow: 0 0 0 3px rgba(76, 123, 224, 0.22);
 }
 .datebox {
   display: flex;
   align-items: stretch;
+  position: relative;
 }
 .datebox button {
   width: 30px;
@@ -364,6 +368,177 @@ input[type="time"]:focus {
   border-right: 0;
   min-width: 140px;
 }
+
+/* ---------- micro-animated calendar popup ---------- */
+.mps-cal-input {
+  cursor: pointer;
+  user-select: none;
+  text-align: center;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    color 0.15s;
+}
+.mps-cal-input:hover {
+  background: #182238;
+}
+.mps-cal-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 280px;
+  max-width: calc(100vw - 32px);
+  background: #10172a;
+  border: 1px solid #33446b;
+  border-radius: 10px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.65);
+  padding: 12px;
+  z-index: 60;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px) scale(0.97);
+  transform-origin: top left;
+  transition:
+    opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    visibility 0s 0.18s;
+}
+.mps-cal-popup.open {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.mps-cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.mps-cal-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 4px 8px;
+  user-select: none;
+}
+.mps-cal-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s, border-color 0.15s;
+}
+.mps-cal-btn:hover {
+  transform: scale(1.1);
+  background: #1f2c4d;
+  border-color: #4a5d8a;
+}
+.mps-cal-quick {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.mps-cal-chip {
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: rgba(76, 201, 240, 0.12);
+  color: #4cc9f0;
+  border: 1px solid rgba(76, 201, 240, 0.25);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+.mps-cal-chip:hover {
+  transform: scale(1.05);
+  background: rgba(76, 201, 240, 0.25);
+}
+.mps-cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 6px;
+  user-select: none;
+}
+.mps-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+}
+.mps-cal-day {
+  height: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--text);
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  transition:
+    transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    color 0.15s ease;
+}
+.mps-cal-day:hover {
+  transform: translateY(-2px) scale(1.12);
+  background: #1f2c4d;
+  box-shadow: 0 4px 10px rgba(76, 201, 240, 0.25);
+  z-index: 2;
+  color: #fff;
+}
+.mps-cal-day:active {
+  transform: scale(0.96);
+}
+.mps-cal-day.other-month {
+  color: rgba(131, 146, 176, 0.35);
+}
+.mps-cal-day.today {
+  border: 1px solid rgba(76, 201, 240, 0.45);
+}
+.mps-cal-day.selected {
+  background: linear-gradient(135deg, #4361ee, #4cc9f0);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(67, 97, 238, 0.5);
+}
+.mps-cal-day.has-data::after {
+  content: '';
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #3ddc84;
+  margin-top: 2px;
+  box-shadow: 0 0 4px #3ddc84;
+}
+.mps-cal-day.selected.has-data::after {
+  background: #fff;
+  box-shadow: 0 0 4px #fff;
+}
+
 
 .chip {
   margin-left: auto;

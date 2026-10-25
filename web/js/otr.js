@@ -732,17 +732,6 @@
     p.appendChild(h);
     return { panel: p, head: h };
   }
-  function select(id, label, key) {
-    var s = el("select", "mdate");
-    s.id = id;
-    s.setAttribute("aria-label", label);
-    s.onchange = function () {
-      S.filters[key] = s.value;
-      S.page = 0;
-      render();
-    };
-    return s;
-  }
   /* a custom dropdown (widgets.js) living in its own box */
   function dropdown(cls, opts) {
     var box = el("div", cls);
@@ -778,18 +767,18 @@
     });
     D.prev.id = "otr-prev";
     D.prev.title = "Previous available date";
-    D.prev.setAttribute("aria-label", "Previous date");
-    D.dateIn = el("input");
-    D.dateIn.type = "date";
+    D.dateIn = el("input", "mdate");
     D.dateIn.id = "otr-date";
-    D.dateIn.onchange = function () {
-      var v = D.dateIn.value;
-      if (!ISO_RE.test(v)) {
-        D.dateIn.value = S.sel ? S.sel.date : "";
-        return;
-      }
-      if (S.sel && v !== S.sel.date) chooseDate(v);
-    };
+    D.dateIn.placeholder = "Select date\u2026";
+    D.dateCal = UI.calendar(D.dateIn, {
+      onChange: function (v) {
+        if (!ISO_RE.test(v || "")) {
+          D.dateIn.value = S.sel ? S.sel.date : "";
+          return;
+        }
+        if (S.sel && v !== S.sel.date) chooseDate(v);
+      },
+    });
     D.next = button("\u203a", null, function () {
       stepDate(1);
     });
@@ -867,16 +856,60 @@
 
     /* filters */
     var fb = el("section", "controls");
-    D.fUser = select("otr-f-user", "Filter by user", "user");
-    D.fEx = select("otr-f-ex", "Filter by exchange", "exchange");
-    D.fSeg = select("otr-f-seg", "Filter by segment", "segment");
-    D.fSeries = select("otr-f-series", "Filter by series", "series");
-    D.fType = select("otr-f-type", "Filter by option type", "optType");
-    fb.appendChild(field("User", D.fUser));
-    fb.appendChild(field("Exchange", D.fEx));
-    fb.appendChild(field("Segment", D.fSeg));
-    fb.appendChild(field("Series", D.fSeries));
-    fb.appendChild(field("Option type", D.fType));
+    var fUser = dropdown("sm", {
+      placeholder: "All",
+      search: true,
+      searchPlaceholder: "Search user\u2026",
+      onChange: function (v) {
+        S.filters.user = v || "";
+        S.page = 0;
+        render();
+      },
+    });
+    var fEx = dropdown("sm", {
+      placeholder: "All",
+      onChange: function (v) {
+        S.filters.exchange = v || "";
+        S.page = 0;
+        render();
+      },
+    });
+    var fSeg = dropdown("sm", {
+      placeholder: "All",
+      onChange: function (v) {
+        S.filters.segment = v || "";
+        S.page = 0;
+        render();
+      },
+    });
+    var fSeries = dropdown("sm", {
+      placeholder: "All",
+      onChange: function (v) {
+        S.filters.series = v || "";
+        S.page = 0;
+        render();
+      },
+    });
+    var fType = dropdown("sm", {
+      placeholder: "All",
+      onChange: function (v) {
+        S.filters.optType = v || "";
+        S.page = 0;
+        render();
+      },
+    });
+
+    D.fUser = fUser.ui;
+    D.fEx = fEx.ui;
+    D.fSeg = fSeg.ui;
+    D.fSeries = fSeries.ui;
+    D.fType = fType.ui;
+
+    fb.appendChild(field("User", fUser.box));
+    fb.appendChild(field("Exchange", fEx.box));
+    fb.appendChild(field("Segment", fSeg.box));
+    fb.appendChild(field("Series", fSeries.box));
+    fb.appendChild(field("Option type", fType.box));
     D.fText = el("input", "sq");
     D.fText.id = "otr-f-text";
     D.fText.type = "search";
@@ -1091,7 +1124,12 @@
       srv.dates.forEach(function (d) {
         if (d.times.length && d.date > newest) newest = d.date;
       });
-    D.dateIn.value = sel && sel.date ? sel.date : "";
+    var curIso = sel && sel.date ? sel.date : "";
+    D.dateIn.value = curIso;
+    if (D.dateCal) {
+      D.dateCal.setValue(curIso);
+      D.dateCal.setAvailableDates(srv ? srv.dates.map(function (d) { return d.date; }) : []);
+    }
     D.dateIn.max = newest > today ? newest : today;
     D.dateIn.disabled = !S.servers.length;
     D.prev.disabled = !sel || !Core.neighborDate(S.servers, sel, -1);
@@ -1307,14 +1345,15 @@
 
   /* ---------- filters ---------- */
   /* options = All + values; returns the kept selection ("" when it no longer exists) */
-  function fillSelect(sel, values, current) {
-    sel.textContent = "";
-    sel.appendChild(new Option("All", ""));
-    values.forEach(function (v) {
-      sel.appendChild(new Option(v, v));
+  function fillSelect(ui, values, current) {
+    var items = [{ value: "", label: "All" }];
+    (values || []).forEach(function (v) {
+      items.push({ value: v, label: v });
     });
-    sel.value = values.indexOf(current) >= 0 ? current : "";
-    return sel.value;
+    ui.setItems(items);
+    var kept = values && values.indexOf(current) >= 0 ? current : "";
+    ui.setValue(kept);
+    return kept;
   }
   function fillFilters() {
     var o = S.opts,
@@ -1351,7 +1390,7 @@
       [D.fSeries, "series"],
       [D.fType, "optType"],
     ].forEach(function (p) {
-      if (p[0].value !== f[p[1]]) p[0].value = f[p[1]];
+      if (p[0].getValue() !== (f[p[1]] || "")) p[0].setValue(f[p[1]] || "");
     });
     if (D.fText.value !== f.text) D.fText.value = f.text;
     D.fHigh.checked = f.onlyHigh;

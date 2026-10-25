@@ -788,5 +788,252 @@ window.MPSUI = (function () {
     return api;
   }
 
-  return { select: select, multiPick: multiPick, dialog: dialog };
+  /* calendar(input, opts) -> custom micro-animated date picker popup attached to input */
+  function calendar(input, opts) {
+    opts = opts || {};
+    input.type = "text";
+    input.readOnly = true;
+    input.classList.add("mps-cal-input");
+
+    var parent = input.parentNode;
+    if (parent) parent.classList.add("datebox");
+
+    var popup = h("div", "mps-cal-popup");
+    popup.hidden = true;
+
+    // Header
+    var header = h("div", "mps-cal-header");
+    var prevBtn = h("button", "mps-cal-btn", "\u2039");
+    prevBtn.type = "button";
+    prevBtn.title = "Previous month";
+    var titleBtn = h("span", "mps-cal-title");
+    var nextBtn = h("button", "mps-cal-btn", "\u203a");
+    nextBtn.type = "button";
+    nextBtn.title = "Next month";
+    header.appendChild(prevBtn);
+    header.appendChild(titleBtn);
+    header.appendChild(nextBtn);
+
+    // Quick Jump Row
+    var quick = h("div", "mps-cal-quick");
+    var todayChip = h("button", "mps-cal-chip", "Today");
+    todayChip.type = "button";
+    var latestChip = h("button", "mps-cal-chip", "Latest");
+    latestChip.type = "button";
+    quick.appendChild(todayChip);
+    quick.appendChild(latestChip);
+
+    // Weekdays row
+    var week = h("div", "mps-cal-week");
+    ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"].forEach(function (w) {
+      week.appendChild(h("span", null, w));
+    });
+
+    // Days grid
+    var grid = h("div", "mps-cal-grid");
+
+    popup.appendChild(header);
+    popup.appendChild(quick);
+    popup.appendChild(week);
+    popup.appendChild(grid);
+
+    if (parent) {
+      parent.appendChild(popup);
+    } else {
+      document.body.appendChild(popup);
+    }
+
+    var MONTH_NAMES = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+
+    var curDate = input.value || "";
+    var viewYear, viewMonth;
+    var available = Object.create(null);
+    var isOpen = false;
+
+    function initViewDate() {
+      var d = curDate && /^\d{4}-\d{2}-\d{2}$/.test(curDate) ? new Date(curDate + "T00:00:00") : new Date();
+      if (isNaN(d.getTime())) d = new Date();
+      viewYear = d.getFullYear();
+      viewMonth = d.getMonth();
+    }
+    initViewDate();
+
+    function pad2(n) {
+      return n < 10 ? "0" + n : String(n);
+    }
+
+    function toIso(y, m, d) {
+      return y + "-" + pad2(m + 1) + "-" + pad2(d);
+    }
+
+    function paint() {
+      titleBtn.textContent = MONTH_NAMES[viewMonth] + " " + viewYear;
+      grid.textContent = "";
+
+      var todayIso = new Date().toISOString().substring(0, 10);
+      var firstDay = new Date(viewYear, viewMonth, 1);
+      var startDay = (firstDay.getDay() + 6) % 7;
+      var daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+      var daysInPrev = new Date(viewYear, viewMonth, 0).getDate();
+
+      // Days of previous month
+      for (var p = startDay - 1; p >= 0; p--) {
+        var pDay = daysInPrev - p;
+        var prevM = viewMonth === 0 ? 11 : viewMonth - 1;
+        var prevY = viewMonth === 0 ? viewYear - 1 : viewYear;
+        var pIso = toIso(prevY, prevM, pDay);
+        grid.appendChild(createDayCell(pDay, pIso, true, false, false, false));
+      }
+
+      // Days of current month
+      for (var d = 1; d <= daysInMonth; d++) {
+        var iso = toIso(viewYear, viewMonth, d);
+        var isSel = iso === curDate;
+        var isToday = iso === todayIso;
+        var hasData = !!available[iso];
+        grid.appendChild(createDayCell(d, iso, false, isSel, isToday, hasData));
+      }
+
+      // Trailing days for next month
+      var totalCells = startDay + daysInMonth;
+      var remaining = (7 - (totalCells % 7)) % 7;
+      for (var n = 1; n <= remaining; n++) {
+        var nextM = viewMonth === 11 ? 0 : viewMonth + 1;
+        var nextY = viewMonth === 11 ? viewYear + 1 : viewYear;
+        var nIso = toIso(nextY, nextM, n);
+        grid.appendChild(createDayCell(n, nIso, true, false, false, false));
+      }
+    }
+
+    function createDayCell(dayNum, iso, otherMonth, isSel, isToday, hasData) {
+      var cls = "mps-cal-day";
+      if (otherMonth) cls += " other-month";
+      if (isSel) cls += " selected";
+      if (isToday) cls += " today";
+      if (hasData) cls += " has-data";
+
+      var el = h("div", cls, String(dayNum));
+      el.dataset.iso = iso;
+      return el;
+    }
+
+    function open() {
+      if (isOpen) return;
+      initViewDate();
+      paint();
+      popup.hidden = false;
+      setTimeout(function () {
+        popup.classList.add("open");
+      }, 10);
+      isOpen = true;
+    }
+
+    function close() {
+      if (!isOpen) return;
+      popup.classList.remove("open");
+      isOpen = false;
+      setTimeout(function () {
+        if (!isOpen) popup.hidden = true;
+      }, 180);
+    }
+
+    function pick(iso) {
+      curDate = iso;
+      input.value = iso;
+      close();
+      if (opts.onChange) opts.onChange(iso);
+      input.dispatchEvent(new Event("change"));
+      if (input.onchange) input.onchange();
+    }
+
+    input.addEventListener("click", function (e) {
+      e.stopPropagation();
+      isOpen ? close() : open();
+    });
+
+    prevBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (viewMonth === 0) {
+        viewMonth = 11;
+        viewYear--;
+      } else {
+        viewMonth--;
+      }
+      paint();
+    });
+
+    nextBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (viewMonth === 11) {
+        viewMonth = 0;
+        viewYear++;
+      } else {
+        viewMonth++;
+      }
+      paint();
+    });
+
+    todayChip.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var todayIso = new Date().toISOString().substring(0, 10);
+      pick(todayIso);
+    });
+
+    latestChip.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var keys = Object.keys(available).sort();
+      if (keys.length > 0) {
+        pick(keys[keys.length - 1]);
+      } else {
+        var todayIso = new Date().toISOString().substring(0, 10);
+        pick(todayIso);
+      }
+    });
+
+    grid.addEventListener("click", function (e) {
+      var cell = e.target.closest ? e.target.closest(".mps-cal-day") : null;
+      if (cell && cell.dataset.iso) {
+        e.stopPropagation();
+        pick(cell.dataset.iso);
+      }
+    });
+
+    document.addEventListener("pointerdown", function (e) {
+      if (isOpen && !popup.contains(e.target) && e.target !== input) {
+        close();
+      }
+    });
+
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && isOpen) {
+        close();
+      }
+    });
+
+    return {
+      setValue: function (iso) {
+        curDate = iso || "";
+        input.value = curDate;
+        if (isOpen) paint();
+      },
+      getValue: function () {
+        return curDate;
+      },
+      setAvailableDates: function (dates) {
+        available = Object.create(null);
+        (dates || []).forEach(function (d) {
+          available[d] = true;
+        });
+        if (isOpen) paint();
+      },
+      open: open,
+      close: close,
+    };
+  }
+
+  return { select: select, multiPick: multiPick, dialog: dialog, calendar: calendar };
 })();
+
