@@ -912,8 +912,14 @@ window.MPSUI = (function () {
       if (isToday) cls += " today";
       if (hasData) cls += " has-data";
 
-      var el = h("div", cls, String(dayNum));
+      var el = h("div", cls);
       el.dataset.iso = iso;
+      var num = h("span", "mps-cal-num", String(dayNum));
+      el.appendChild(num);
+      if (hasData) {
+        var dot = h("span", "mps-cal-dot");
+        el.appendChild(dot);
+      }
       return el;
     }
 
