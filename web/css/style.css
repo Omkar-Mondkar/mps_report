@@ -11,6 +11,130 @@
 }
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+/* Universal WebKit / Blink scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(13, 18, 32, 0.4);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+  border: 1px solid rgba(13, 18, 32, 0.2);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #37476b;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #4c7be0;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) var(--bg);
+}
+
+html::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+html::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 5px;
+  border: 2px solid var(--bg);
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: #37476b;
+}
+
+/* Custom scrollbars for high-density containers across MPS, OTR, Access tabs */
+.tblwrap,
+.tabwrap,
+.table-wrap,
+.acc-problems,
+.acc-pick,
+.select .menu,
+.select .mopts,
+#sideMenu,
+.modal,
+.dialog {
+  scrollbar-width: thin;
+  scrollbar-color: #33446b rgba(13, 18, 32, 0.6);
+}
+
+.tblwrap::-webkit-scrollbar,
+.tabwrap::-webkit-scrollbar,
+.table-wrap::-webkit-scrollbar,
+.acc-problems::-webkit-scrollbar,
+.acc-pick::-webkit-scrollbar,
+.select .menu::-webkit-scrollbar,
+.select .mopts::-webkit-scrollbar,
+#sideMenu::-webkit-scrollbar,
+.modal::-webkit-scrollbar,
+.dialog::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.tblwrap::-webkit-scrollbar-track,
+.tabwrap::-webkit-scrollbar-track,
+.table-wrap::-webkit-scrollbar-track,
+.acc-problems::-webkit-scrollbar-track,
+.acc-pick::-webkit-scrollbar-track,
+.select .menu::-webkit-scrollbar-track,
+.select .mopts::-webkit-scrollbar-track,
+#sideMenu::-webkit-scrollbar-track,
+.modal::-webkit-scrollbar-track,
+.dialog::-webkit-scrollbar-track {
+  background: rgba(13, 18, 32, 0.5);
+  border-radius: 4px;
+}
+
+.tblwrap::-webkit-scrollbar-thumb,
+.tabwrap::-webkit-scrollbar-thumb,
+.table-wrap::-webkit-scrollbar-thumb,
+.acc-problems::-webkit-scrollbar-thumb,
+.acc-pick::-webkit-scrollbar-thumb,
+.select .menu::-webkit-scrollbar-thumb,
+.select .mopts::-webkit-scrollbar-thumb,
+#sideMenu::-webkit-scrollbar-thumb,
+.modal::-webkit-scrollbar-thumb,
+.dialog::-webkit-scrollbar-thumb {
+  background: #33446b;
+  border-radius: 4px;
+}
+
+.tblwrap::-webkit-scrollbar-thumb:hover,
+.tabwrap::-webkit-scrollbar-thumb:hover,
+.table-wrap::-webkit-scrollbar-thumb:hover,
+.acc-problems::-webkit-scrollbar-thumb:hover,
+.acc-pick::-webkit-scrollbar-thumb:hover,
+.select .menu::-webkit-scrollbar-thumb:hover,
+.select .mopts::-webkit-scrollbar-thumb:hover,
+#sideMenu::-webkit-scrollbar-thumb:hover,
+.modal::-webkit-scrollbar-thumb:hover,
+.dialog::-webkit-scrollbar-thumb:hover {
+  background: #4a5f91;
 }
 html,
 body {

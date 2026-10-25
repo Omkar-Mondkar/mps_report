@@ -205,8 +205,26 @@
   margin: 10px 0;
   max-height: 220px;
   overflow-y: auto;
+  overflow-x: auto;
   border: 1px solid var(--line, #27334f);
   border-radius: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line, #27334f) var(--panel, #151c2e);
+}
+
+.ai-msg .tbl-wrapper::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.ai-msg .tbl-wrapper::-webkit-scrollbar-track {
+  background: var(--panel, #151c2e);
+}
+.ai-msg .tbl-wrapper::-webkit-scrollbar-thumb {
+  background: var(--line, #27334f);
+  border-radius: 3px;
+}
+.ai-msg .tbl-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #37476b;
 }
 
 .ai-table {
