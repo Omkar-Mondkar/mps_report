@@ -52,7 +52,7 @@ class TestAiService(unittest.TestCase):
     def test_help_query(self):
         res = handle_ask("help", self.cfg)
         self.assertTrue(res['ok'])
-        self.assertIn("AI Query Assistant Help", res['answer'])
+        self.assertIn("Query Assistant Help", res['answer'])
         self.assertEqual(res['meta']['source'], 'rules')
 
     def test_otr_breaches_fast_path(self):

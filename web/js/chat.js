@@ -1,4 +1,4 @@
-/* web/js/chat.js - AI Query Assistant interactive floating widget with Canvas charts. */
+/* web/js/chat.js - Query Assistant interactive widget with Canvas charts and institutional dark styling. */
 (function (root) {
   "use strict";
 
@@ -9,10 +9,21 @@
     history: []
   };
 
+  // Institutional financial palette matching the MPS/OTR dashboard theme
   var PALETTE = [
-    "#4cc9f0", "#4361ee", "#3ddc84", "#f72585", "#7209b7",
-    "#f9a03f", "#4895ef", "#560bad", "#b5179e", "#06d6a0"
+    "#4cc9f0", "#3ddc84", "#4c7be0", "#f2b84b", "#f9a03f",
+    "#5bc0be", "#8392b0", "#72a1e5", "#38bdf8", "#34d399"
   ];
+
+  // Crisp inline SVG icons (no emojis)
+  var ICONS = {
+    chat: '<svg class="ai-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>',
+    expand: '<svg class="ai-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>',
+    restore: '<svg class="ai-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>',
+    close: '<svg class="ai-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>',
+    send: '<svg class="ai-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>',
+    link: '<svg class="ai-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>'
+  };
 
   function $(id) {
     return document.getElementById(id);
@@ -85,9 +96,9 @@
     var btn = document.createElement("button");
     btn.id = "aiChatBtn";
     btn.type = "button";
-    btn.setAttribute("aria-label", "AI Query Assistant");
-    btn.title = "Ask AI Assistant (OTR / MPS)";
-    btn.innerHTML = "&#10024;"; // Sparkles icon
+    btn.setAttribute("aria-label", "Query Assistant");
+    btn.title = "Open Query Assistant (OTR / MPS)";
+    btn.innerHTML = ICONS.chat + '<span class="ai-btn-label">Query Assistant</span>';
     document.body.appendChild(btn);
 
     // 2. Chat Modal Container
@@ -97,13 +108,13 @@
     modal.innerHTML = [
       '<div id="aiChatHeader">',
       '  <div class="title-box">',
-      '    <span style="font-size:16px;">&#10024;</span>',
-      '    <h3>AI Assistant</h3>',
+      '    <span class="ai-header-icon">' + ICONS.chat + '</span>',
+      '    <h3>Query Assistant</h3>',
       '    <span class="badge" id="aiChatBadge">Fast Rules + Ollama</span>',
       '  </div>',
       '  <div class="controls">',
-      '    <button id="aiChatExpand" class="icon-btn" title="Expand / Shrink">&#x26F6;</button>',
-      '    <button id="aiChatClose" class="icon-btn" title="Close">&times;</button>',
+      '    <button id="aiChatExpand" class="icon-btn" title="Expand">' + ICONS.expand + '</button>',
+      '    <button id="aiChatClose" class="icon-btn" title="Close">' + ICONS.close + '</button>',
       '  </div>',
       '</div>',
       '<div id="aiChatMessages"></div>',
@@ -116,7 +127,7 @@
       '</div>',
       '<div id="aiChatFooter">',
       '  <input type="text" id="aiChatInput" placeholder="Ask a question (e.g. OTR breaches > 2000 yesterday)..." autocomplete="off" spellcheck="false" />',
-      '  <button type="button" id="aiChatSend">Send</button>',
+      '  <button type="button" id="aiChatSend"><span>Send</span>' + ICONS.send + '</button>',
       '</div>'
     ].join("");
     document.body.appendChild(modal);
@@ -134,6 +145,7 @@
     btn.addEventListener("click", function () {
       state.open = !state.open;
       modal.hidden = !state.open;
+      btn.classList.toggle("on", state.open);
       if (state.open) {
         input.focus();
         scrollToBottom();
@@ -143,13 +155,14 @@
     close.addEventListener("click", function () {
       state.open = false;
       modal.hidden = true;
+      btn.classList.remove("on");
     });
 
     expand.addEventListener("click", function () {
       state.expanded = !state.expanded;
       modal.classList.toggle("expanded", state.expanded);
       expand.title = state.expanded ? "Restore" : "Expand";
-      // Redraw any charts in the active chat when container size changes
+      expand.innerHTML = state.expanded ? ICONS.restore : ICONS.expand;
       redrawActiveCharts();
     });
 
@@ -178,8 +191,8 @@
     el.className = "ai-msg assistant";
     el.innerHTML = [
       '<div class="summary-text">',
-      '  <p><strong>Welcome to the MPS/OTR AI Assistant!</strong></p>',
-      '  <p>Ask operational questions in natural language. Queries are parsed instantly with fast regex rules and verified against your permissions.</p>',
+      '  <p><strong>MPS / OTR Query Assistant</strong></p>',
+      '  <p>Ask operational questions in plain text. Queries are evaluated directly against your server data with role-based permissions.</p>',
       '</div>'
     ].join("");
     msgs.appendChild(el);
@@ -249,7 +262,11 @@
     var send = $("aiChatSend");
     var input = $("aiChatInput");
     send.disabled = loading;
-    send.textContent = loading ? "..." : "Send";
+    if (loading) {
+      send.innerHTML = '<span>Wait...</span>';
+    } else {
+      send.innerHTML = '<span>Send</span>' + ICONS.send;
+    }
     if (loading) {
       var msgs = $("aiChatMessages");
       var loader = document.createElement("div");
@@ -326,7 +343,7 @@
     if (action && action.view) {
       html.push(
         '<button type="button" id="' + actionBtnId + '" class="ai-sync-btn">' +
-        '&#x2197; Apply to ' + (action.view === 'otr' ? 'OTR Dashboard' : 'MPS Report') +
+        ICONS.link + '<span>Apply to ' + (action.view === 'otr' ? 'OTR Dashboard' : 'MPS Report') + '</span>' +
         '</button>'
       );
     }
@@ -390,6 +407,8 @@
     // Close or minimize chat if user wants to see dashboard
     state.open = false;
     $("aiChatModal").hidden = true;
+    var btn = $("aiChatBtn");
+    if (btn) btn.classList.remove("on");
   }
 
   function renderCanvasChart(canvasId, chart) {

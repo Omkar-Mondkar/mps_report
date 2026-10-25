@@ -53,7 +53,7 @@ def execute_query(spec, cfg, scope=None):
 def _execute_help(spec):
     err = spec.get('_error')
     text = (
-        "**AI Query Assistant Help**\n\n"
+        "**Query Assistant Help**\n\n"
         "You can ask natural language questions about OTR and MPS data:\n"
         "- **OTR Breaches**: *'Show breaches above 2000 in NSE FO yesterday'*\n"
         "- **Top Dealers**: *'Top 10 dealers by OTR in BSE CM'*\n"
