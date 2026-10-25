@@ -106,5 +106,68 @@ class TestAiService(unittest.TestCase):
         self.assertIn("Total Orders", res['answer'])
 
 
+    def test_multi_day_otr_ranking_query(self):
+        # Create additional mock OTR files for earlier dates:
+        # 2026-10-23
+        f23 = os.path.join(self.tmpdir.name, "DealerWise_Order_Trade_Report_10.0.0.1_23102026_153000.csv")
+        with open(f23, "w", encoding="utf-8") as f:
+            f.write(
+                "user,lourtoken,symbol,series,opt_type,strike,Expiry_date,sum(gorder),sum(trade),otr\n"
+                "D101,1020001,NIFTY,XX,CE,18000,2026-10-29,6000,2,3000.0\n"
+                "D102,1010001,RELIANCE,EQ,,,2026-10-29,100,10,10.0\n"
+            )
+        # 2026-10-22
+        f22 = os.path.join(self.tmpdir.name, "DealerWise_Order_Trade_Report_10.0.0.1_22102026_153000.csv")
+        with open(f22, "w", encoding="utf-8") as f:
+            f.write(
+                "user,lourtoken,symbol,series,opt_type,strike,Expiry_date,sum(gorder),sum(trade),otr\n"
+                "D101,1020001,NIFTY,XX,CE,18000,2026-10-29,5500,2,2750.0\n"
+                "D103,1020002,BANKNIFTY,XX,PE,42000,2026-10-29,8000,3,2666.67\n"
+            )
+
+        # Query: "who breached otr the most for the last 20 days"
+        res = handle_ask("who breached otr the most for the last 20 days", self.cfg)
+        self.assertTrue(res['ok'])
+        self.assertEqual(res['meta']['intent'], 'otr_top_breachers')
+        self.assertIn("dealer(s) with OTR breaches", res['answer'])
+
+        # Verify ranked table: D101 should be #1 (3 breaches), D103 #2 (2 breaches)
+        self.assertIsNotNone(res['table'])
+        self.assertEqual(len(res['table']['rows']), 2)
+        top_row = res['table']['rows'][0]
+        self.assertEqual(top_row[0], 'D101')  # Dealer
+        self.assertEqual(top_row[1], '3')     # Breach count across 3 days
+
+        second_row = res['table']['rows'][1]
+        self.assertEqual(second_row[0], 'D103')
+        self.assertEqual(second_row[1], '2')
+
+        # Verify bar chart
+        self.assertIsNotNone(res['chart'])
+        self.assertEqual(res['chart']['type'], 'bar')
+        self.assertEqual(res['chart']['data']['labels'], ['D101', 'D103'])
+        self.assertEqual(res['chart']['data']['values'], [3, 2])
+
+    def test_multi_day_otr_ranking_scope_isolation(self):
+        # Create additional mock OTR files
+        f23 = os.path.join(self.tmpdir.name, "DealerWise_Order_Trade_Report_10.0.0.1_23102026_153000.csv")
+        with open(f23, "w", encoding="utf-8") as f:
+            f.write(
+                "user,lourtoken,symbol,series,opt_type,strike,Expiry_date,sum(gorder),sum(trade),otr\n"
+                "D101,1020001,NIFTY,XX,CE,18000,2026-10-29,6000,2,3000.0\n"
+                "D103,1020002,BANKNIFTY,XX,PE,42000,2026-10-29,9000,3,3000.0\n"
+            )
+
+        # Scope allowing ONLY dealer D103
+        scope = Scope(grants=[('10.0.0.1', 'NSE', 'FO', 'D103')])
+        res = handle_ask("who breached otr the most for the last 20 days", self.cfg, scope=scope)
+        self.assertTrue(res['ok'])
+        # D101 MUST NOT appear in the results for this user
+        dealers = [r[0] for r in res['table']['rows']]
+        self.assertIn("D103", dealers)
+        self.assertNotIn("D101", dealers)
+
+
 if __name__ == '__main__':
     unittest.main()
+

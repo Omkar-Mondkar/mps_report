@@ -4,6 +4,7 @@ INTENTS = {
     'otr_breaches',      # Breaches strictly above threshold
     'otr_top',           # Top dealers/symbols by OTR
     'otr_consecutive',   # Dealers with consecutive breaches over N days
+    'otr_top_breachers', # Ranked dealers by breach frequency across multi-day window
     'otr_summary',       # Snapshot / overall OTR metrics
     'mps_peak',          # Maximum messages-per-second rate
     'mps_timeseries',    # MPS rate points over a day or interval

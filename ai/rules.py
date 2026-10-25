@@ -1,12 +1,17 @@
 """ai/rules.py - Fast deterministic regex parser for common query patterns (<2ms)."""
 import re
-from .schema import new_query_spec, DEFAULT_THRESHOLD
+from .schema import new_query_spec, DEFAULT_THRESHOLD, DEFAULT_TOP_N
 
 # Regex patterns for fast extraction
 RE_HELP = re.compile(r'^\s*(help|what can you do|\?|examples?)\s*$', re.IGNORECASE)
 
-# Threshold: "otr > 2500", "otr >= 2000", "above 3000", "> 2000", "over 1500"
-RE_THR = re.compile(r'(?:otr|breach(?:es)?|ratio)?\s*(?:>|>=|above|over|exceeding)\s*(\d+(?:\.\d+)?)', re.IGNORECASE)
+# Threshold: "otr > 2500", "otr >= 2000", "above 3000", "> 2000", "over 1500", "crossed 2500", "exceeded 3000"
+RE_THR = re.compile(
+    r'(?:otr|breach(?:es)?|ratio|threshold|violations?)?\s*'
+    r'(?:>|>=|above|over|exceeding|crossed|exceeded|greater\s+than|more\s+than)\s*'
+    r'(\d+(?:\.\d+)?)',
+    re.IGNORECASE
+)
 
 # Top N: "top 10", "top 5"
 RE_TOP = re.compile(r'\btop\s+(\d+)\b', re.IGNORECASE)
@@ -14,18 +19,41 @@ RE_TOP = re.compile(r'\btop\s+(\d+)\b', re.IGNORECASE)
 # Consecutive days: "5 consecutive days", "consecutive 3 days", "breaches for 5 days"
 RE_CONSECUTIVE = re.compile(r'(?:for\s+)?(\d+)\s+consecutive\s+days|\bconsecutive\s+(\d+)\s+days|\bbreaches\s+for\s+(\d+)\s+days', re.IGNORECASE)
 
+# Superlatives and ranking phrases
+RE_SUPERLATIVE = re.compile(
+    r'\b(?:who\s+(?:has\s+)?(?:breached|violated|exceeded)\s+(?:otr\s+)?(?:the\s+most|most)|'
+    r'who\s+breached\s+otr\s+the\s+most|'
+    r'who\s+(?:has\s+)?(?:the\s+)?most\s+breaches|'
+    r'(?:the\s+)?most\s+(?:frequent\s+)?(?:breach(?:es)?|violat(?:ions?|ors?)|offenders?)|'
+    r'top\s+(?:breachers?|violators?|offenders?)|'
+    r'highest\s+(?:breach(?:es)?|violat(?:ions?|ors?)|offenders?|otr)|'
+    r'worst\s+otr|frequent\s+breachers?|biggest\s+violators?|'
+    r'dealers?\s+with\s+(?:the\s+)?most\s+breaches)\b',
+    re.IGNORECASE
+)
+
 # Exchange & Segment
 RE_PAIR = re.compile(r'\b(NSE|BSE)[_\s]+(CM|FO|CD)\b', re.IGNORECASE)
 RE_EXCHANGE = re.compile(r'\b(NSE|BSE)\b', re.IGNORECASE)
 RE_SEGMENT = re.compile(r'\b(CM|FO|CD)\b', re.IGNORECASE)
 
-# Dealer / User: "dealer D101", "user U12", "dealer=1023"
-RE_DEALER = re.compile(r'\b(?:dealer|user)\s*[:=]?\s*([A-Za-z0-9_*]+)\b', re.IGNORECASE)
+# Dealer / User inquiries: "dealer D101", "user U12", "breaches by dealer D101", "how many breaches did dealer D101 have"
+RE_DEALER = re.compile(
+    r'\b(?:(?:how\s+many\s+)?breaches\s+(?:did\s+)?(?:by|for|of)?\s*|(?:history|status|records)\s+(?:for|of)?\s*)?'
+    r'(?:dealer|user)\s*[:=]?\s*([A-Za-z0-9_*]+)\b',
+    re.IGNORECASE
+)
 
-# Relative dates: "today", "yesterday", "last 7 days", "last week"
+# Relative dates: "today", "yesterday", "last 7 days", "for the last 20 days", "past month"
 RE_TODAY = re.compile(r'\btoday\b', re.IGNORECASE)
 RE_YESTERDAY = re.compile(r'\byesterday\b', re.IGNORECASE)
-RE_LAST_N_DAYS = re.compile(r'\blast\s+(\d+)\s+days\b', re.IGNORECASE)
+RE_PREP_DAYS = re.compile(
+    r'\b(?:for\s+the|in\s+the|over\s+the|for|in|over|during\s+the|during)?\s*'
+    r'(?:last|past)\s+(\d+)\s+days\b',
+    re.IGNORECASE
+)
+RE_WEEK = re.compile(r'\b(?:in\s+the\s+|for\s+the\s+|over\s+the\s+|this\s+|last\s+|past\s+)?(?:last|past|this)\s+week\b', re.IGNORECASE)
+RE_MONTH = re.compile(r'\b(?:in\s+the\s+|for\s+the\s+|over\s+the\s+|this\s+|last\s+|past\s+)?(?:last|past|this)\s+month\b', re.IGNORECASE)
 
 # ISO date: YYYY-MM-DD or DD-MM-YYYY
 RE_ISO_DATE = re.compile(r'\b(\d{4}-\d{2}-\d{2})\b')
@@ -99,6 +127,7 @@ def match_rules(text):
 
     # Detect Dates
     date_from, date_to = None, None
+    days_count = None
     if RE_TODAY.search(s):
         date_from = 'today'
         date_to = 'today'
@@ -106,10 +135,18 @@ def match_rules(text):
         date_from = 'yesterday'
         date_to = 'yesterday'
     else:
-        m_last = RE_LAST_N_DAYS.search(s)
-        if m_last:
-            days_count = int(m_last.group(1))
+        m_prep = RE_PREP_DAYS.search(s)
+        if m_prep:
+            days_count = int(m_prep.group(1))
             date_from = f'last_{days_count}_days'
+            date_to = 'today'
+        elif RE_WEEK.search(s):
+            days_count = 7
+            date_from = 'last_7_days'
+            date_to = 'today'
+        elif RE_MONTH.search(s):
+            days_count = 30
+            date_from = 'last_30_days'
             date_to = 'today'
         else:
             m_iso = RE_ISO_DATE.search(s)
@@ -139,6 +176,25 @@ def match_rules(text):
             top_n=top_n
         )
 
+    # Superlatives / Multi-day ranking check (e.g. "who breached the most", "top breachers in the last 20 days")
+    is_superlative = bool(RE_SUPERLATIVE.search(s))
+    is_multiday = bool(days_count and days_count > 1)
+
+    if (is_superlative or is_multiday) and (RE_OTR_BREACH.search(s) or is_superlative or threshold is not None):
+        days_window = days_count or 20
+        return new_query_spec(
+            intent='otr_top_breachers',
+            server=server,
+            exchange=exchange,
+            segment=segment,
+            threshold=threshold or DEFAULT_THRESHOLD,
+            date_from=date_from or f'last_{days_window}_days',
+            date_to=date_to or 'today',
+            dealer=dealer,
+            days=days_window,
+            top_n=top_n or DEFAULT_TOP_N
+        )
+
     # MPS peak or timeseries check
     if RE_MPS_PEAK.search(s):
         return new_query_spec(
@@ -160,7 +216,7 @@ def match_rules(text):
             date_to=date_to or date_from or 'today'
         )
 
-    # OTR Breaches or top
+    # OTR Breaches or top (single-day / snapshot)
     if threshold is not None or RE_OTR_BREACH.search(s) or dealer is not None:
         intent = 'otr_top' if (top_n is not None and threshold is None) else 'otr_breaches'
         if RE_OTR_SUMMARY.search(s):

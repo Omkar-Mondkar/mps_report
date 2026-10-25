@@ -34,6 +34,8 @@ def execute_query(spec, cfg, scope=None):
         return _execute_help(spec)
     elif intent in ('otr_breaches', 'otr_top', 'otr_summary'):
         return _execute_otr_snapshot(spec, cfg, scope)
+    elif intent == 'otr_top_breachers':
+        return _execute_otr_multi_day(spec, cfg, scope)
     elif intent == 'otr_consecutive':
         return _execute_otr_consecutive(spec, cfg, scope)
     elif intent == 'mps_peak':
@@ -354,6 +356,270 @@ def _execute_otr_consecutive(spec, cfg, scope):
             "segment": segment or "",
             "threshold": threshold,
             "date": target_window[-1]
+        }
+    }
+
+
+def _execute_otr_multi_day(spec, cfg, scope):
+    """
+    Rank dealers by breach frequency and peak OTR across a multi-day window.
+    Strictly applies user RBAC scope on every snapshot file to prevent out-of-scope access.
+    """
+    server_ip = spec.get('server_ip')
+    threshold = spec.get('threshold') or cfg.get('otr_threshold', 2000.0)
+    days_window = spec.get('days') or 20
+    top_n = spec.get('top_n', 20)
+    exchange = spec.get('exchange')
+    segment = spec.get('segment')
+    dealer = spec.get('dealer')
+    date_from = spec.get('date_from')
+    date_to = spec.get('date_to')
+
+    try:
+        scan = otr.scan_otr(cfg)
+    except OSError as e:
+        return {
+            "intent": "otr_top_breachers",
+            "summary": f"Could not read OTR data directory (`{cfg.get('otr_dir')}`): {e}",
+            "table": {"columns": [], "rows": []},
+            "chart": None,
+            "ui_action": None
+        }
+
+    if (not server_ip or server_ip not in scan) and scan:
+        server_ip = sorted(scan.keys())[0]
+
+    days_map = scan.get(server_ip, {})
+    if not days_map:
+        return {
+            "intent": "otr_top_breachers",
+            "summary": f"No OTR data found for server {spec.get('server_name') or server_ip}.",
+            "table": {"columns": [], "rows": []},
+            "chart": None,
+            "ui_action": None
+        }
+
+    all_dates = sorted(days_map.keys(), reverse=True)
+
+    # Resolve date window
+    if date_from and date_to:
+        target_dates = [d for d in all_dates if date_from <= d <= date_to]
+        if not target_dates:
+            target_dates = all_dates[:days_window]
+    else:
+        target_dates = all_dates[:days_window]
+
+    if not target_dates:
+        return {
+            "intent": "otr_top_breachers",
+            "summary": "No snapshot data available in the requested date range.",
+            "table": {"columns": [], "rows": []},
+            "chart": None,
+            "ui_action": None
+        }
+
+    # Chronological window for display
+    target_dates.sort()
+    start_date = target_dates[0]
+    end_date = target_dates[-1]
+
+    # Dealer stats accumulator:
+    # dealer -> {breach_count, breach_days, active_days, max_otr, total_orders, total_trades}
+    dealer_stats = defaultdict(lambda: {
+        'breach_count': 0,
+        'breach_days': set(),
+        'active_days': set(),
+        'max_otr': 0.0,
+        'total_orders': 0,
+        'total_trades': 0
+    })
+
+    # Optional DuckDB accelerated path if configured, installed, and no restricted scope
+    used_duckdb = False
+    if cfg.get('duckdb', False) and HAS_DUCKDB and scope is None:
+        try:
+            file_paths = []
+            for d in target_dates:
+                times = days_map[d]
+                if times:
+                    p, _ = otr.resolve_otr(cfg, server_ip, d, times[0])
+                    if os.path.isfile(p):
+                        file_paths.append(p)
+            if file_paths:
+                con = duckdb.connect(':memory:')
+                con.execute("""
+                    CREATE TEMP TABLE raw_otr AS
+                    SELECT column0 as usr, column2 as sym, column7 as orders, column8 as trades, column9 as otr_val, column10 as exch, column11 as seg
+                    FROM read_csv(?, header=False, auto_detect=False, columns={
+                        'column0': 'VARCHAR', 'column1': 'VARCHAR', 'column2': 'VARCHAR', 'column3': 'VARCHAR',
+                        'column4': 'VARCHAR', 'column5': 'VARCHAR', 'column6': 'VARCHAR', 'column7': 'BIGINT',
+                        'column8': 'BIGINT', 'column9': 'DOUBLE', 'column10': 'VARCHAR', 'column11': 'VARCHAR'
+                    })
+                """, [file_paths])
+                where_clauses = ["otr_val > ?"]
+                params = [threshold]
+                if exchange:
+                    where_clauses.append("exch = ?")
+                    params.append(exchange)
+                if segment:
+                    where_clauses.append("seg = ?")
+                    params.append(segment)
+                if dealer:
+                    where_clauses.append("usr LIKE ?")
+                    params.append(f"{dealer}%")
+
+                sql = f"""
+                    SELECT usr, COUNT(*) as b_cnt, MAX(otr_val) as max_otr, SUM(orders) as tot_ord, SUM(trades) as tot_trd
+                    FROM raw_otr
+                    WHERE {' AND '.join(where_clauses)}
+                    GROUP BY usr
+                    ORDER BY b_cnt DESC, max_otr DESC
+                    LIMIT {top_n}
+                """
+                res = con.execute(sql, params).fetchall()
+                con.close()
+                if res:
+                    used_duckdb = True
+                    table_rows = []
+                    chart_labels = []
+                    chart_values = []
+                    for row in res:
+                        usr, b_cnt, max_otr_val, tot_ord, tot_trd = row
+                        table_rows.append([
+                            usr,
+                            f"{b_cnt:,}",
+                            f"{len(target_dates)} days",
+                            f"{max_otr_val:.2f}",
+                            f"{int(tot_ord):,}",
+                            f"{int(tot_trd):,}"
+                        ])
+                        if len(chart_labels) < 8:
+                            chart_labels.append(usr)
+                            chart_values.append(int(b_cnt))
+
+                    summary_text = (
+                        f"**Top Breaching Dealers across {len(target_dates)} Days** "
+                        f"({start_date} to {end_date})\n\n"
+                        f"- Server: **{spec.get('server_name') or server_ip}**\n"
+                        f"- Threshold: **> {threshold:,.0f}**\n"
+                        f"- Found **{len(res):,}** breaching dealers across **{len(target_dates)}** daily snapshots."
+                    )
+                    return {
+                        "intent": "otr_top_breachers",
+                        "summary": summary_text,
+                        "table": {
+                            "columns": ["Dealer", "Breach Count", "Window", "Peak OTR", "Total Orders", "Total Trades"],
+                            "rows": table_rows
+                        },
+                        "chart": {
+                            "type": "bar",
+                            "title": f"Top Breaches by Dealer ({start_date} to {end_date})",
+                            "data": {"labels": chart_labels, "values": chart_values}
+                        } if chart_labels else None,
+                        "ui_action": {
+                            "view": "otr",
+                            "server": server_ip,
+                            "exchange": exchange or "",
+                            "segment": segment or "",
+                            "date": end_date,
+                            "threshold": threshold
+                        }
+                    }
+        except Exception:
+            pass
+
+    # Pure Python streaming aggregation (strictly applies user scope to every snapshot)
+    for d in target_dates:
+        times = days_map[d]
+        if not times:
+            continue
+        read_res = otr.read_otr(cfg, server_ip, d, times[0], scope=scope)
+        if read_res.get('error') or read_res.get('missing'):
+            continue
+
+        rows = read_res.get('rows', [])
+        for r in rows:
+            if exchange and r[10] != exchange:
+                continue
+            if segment and r[11] != segment:
+                continue
+            if dealer and not (r[0] == dealer or r[0].startswith(dealer)):
+                continue
+
+            dlr = r[0]
+            st = dealer_stats[dlr]
+            st['active_days'].add(d)
+            st['total_orders'] += r[7]
+            st['total_trades'] += r[8]
+            if r[9] > st['max_otr']:
+                st['max_otr'] = r[9]
+
+            if r[9] > threshold:
+                st['breach_count'] += 1
+                st['breach_days'].add(d)
+
+    # Rank dealers: primary key = breach_count descending, secondary = max_otr descending
+    breachers = [dlr for dlr, s in dealer_stats.items() if s['breach_count'] > 0]
+    breachers.sort(key=lambda d: (dealer_stats[d]['breach_count'], dealer_stats[d]['max_otr']), reverse=True)
+
+    if not breachers:
+        all_active = list(dealer_stats.keys())
+        all_active.sort(key=lambda d: dealer_stats[d]['max_otr'], reverse=True)
+        display_dealers = all_active[:top_n]
+        is_fallback_otr = True
+    else:
+        display_dealers = breachers[:top_n]
+        is_fallback_otr = False
+
+    cols = ["Dealer", "Breach Count", "Days Breached", "Peak OTR", "Total Orders", "Total Trades"]
+    table_rows = []
+    for dlr in display_dealers:
+        st = dealer_stats[dlr]
+        table_rows.append([
+            dlr,
+            f"{st['breach_count']:,}",
+            f"{len(st['breach_days'])} / {len(target_dates)}",
+            f"{st['max_otr']:.2f}",
+            f"{st['total_orders']:,}",
+            f"{st['total_trades']:,}"
+        ])
+
+    if is_fallback_otr:
+        summary_text = (
+            f"**No breaches found above {threshold:,.0f} across {len(target_dates)} Days** "
+            f"({start_date} to {end_date}) for server **{spec.get('server_name') or server_ip}**.\n\n"
+            f"Showing top **{len(display_dealers)}** dealers by peak OTR recorded during this period."
+        )
+    else:
+        summary_text = (
+            f"Found **{len(breachers):,}** dealer(s) with OTR breaches (> **{threshold:,.0f}**) "
+            f"across **{len(target_dates)} days** ({start_date} to {end_date}) on **{spec.get('server_name') or server_ip}**."
+        )
+
+    chart = None
+    if display_dealers:
+        chart_dealers = display_dealers[:8]
+        chart = {
+            "type": "bar",
+            "title": f"Top Breaches by Dealer ({start_date} to {end_date})",
+            "data": {
+                "labels": chart_dealers,
+                "values": [dealer_stats[d]['breach_count'] for d in chart_dealers]
+            }
+        }
+
+    return {
+        "intent": "otr_top_breachers",
+        "summary": summary_text,
+        "table": {"columns": cols, "rows": table_rows},
+        "chart": chart,
+        "ui_action": {
+            "view": "otr",
+            "server": server_ip,
+            "exchange": exchange or "",
+            "segment": segment or "",
+            "date": end_date,
+            "threshold": threshold
         }
     }
 

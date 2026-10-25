@@ -117,7 +117,7 @@ def resolve_and_validate(spec, cfg, scope=None):
                 threshold = 0.0
         except (ValueError, TypeError):
             threshold = cfg.get('otr_threshold', 2000.0)
-    elif intent == 'otr_breaches':
+    elif intent in ('otr_breaches', 'otr_top_breachers'):
         threshold = cfg.get('otr_threshold', 2000.0)
 
     # Top N
@@ -130,13 +130,16 @@ def resolve_and_validate(spec, cfg, scope=None):
     else:
         top_n = DEFAULT_TOP_N
 
-    # Consecutive days
+    # Consecutive or multi-day window
     days = spec.get('days')
     if days is not None:
         try:
             days = max(1, min(int(days), MAX_DAYS_WINDOW))
         except (ValueError, TypeError):
             days = 5
+    elif intent == 'otr_top_breachers':
+        diff_days = (d2 - d1).days
+        days = max(1, min(diff_days if diff_days > 0 else 20, MAX_DAYS_WINDOW))
 
     # Dealer
     dealer = spec.get('dealer')
