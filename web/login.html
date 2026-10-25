@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Sign in - Messages per second</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <main class="login-card">
+      <h1>Sign in</h1>
+      <p class="sub">Messages / second dashboard</p>
+      <form id="loginForm" novalidate>
+        <label for="user">User id</label>
+        <input
+          id="user"
+          name="user"
+          type="text"
+          autocomplete="username"
+          autocapitalize="none"
+          spellcheck="false"
+          autofocus
+          required
+        />
+        <label for="pass">Password</label>
+        <input
+          id="pass"
+          name="pass"
+          type="password"
+          autocomplete="current-password"
+          required
+        />
+        <button id="go" class="go" type="submit">Sign in</button>
+        <div id="err" class="err" role="alert" aria-live="polite"></div>
+      </form>
+    </main>
+    <script src="js/login.js"></script>
+  </body>
+</html>

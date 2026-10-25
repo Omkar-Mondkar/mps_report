@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Messages per second</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/chat.css" />
+  </head>
+  <body>
+    <div id="progress"></div>
+
+    <header id="appHeader">
+      <button
+        id="menuBtn"
+        type="button"
+        class="menubtn"
+        aria-controls="sideMenu"
+        aria-expanded="true"
+        aria-label="Menu"
+        title="Show or hide the menu"
+      >
+        &#9776;
+      </button>
+      <h1 id="title">Messages / second</h1>
+      <span class="viewname" id="viewName">MPS Report</span>
+      <span class="whoami" id="whoami" hidden
+        ><b id="whoName"></b
+        ><span id="shellNote" class="shellnote" role="status"></span
+        ><button id="changePw" type="button" class="mini" hidden>
+          Change password</button
+        ><button id="signOut" type="button" class="mini">Sign out</button></span
+      >
+    </header>
+
+    <div id="layout">
+      <nav id="sideMenu" aria-label="Reports">
+        <div class="mhead">
+          <b>Reports</b>
+          <button
+            id="menuClose"
+            type="button"
+            class="mini"
+            aria-label="Close menu"
+            title="Close the menu"
+          >
+            &times;
+          </button>
+        </div>
+        <button type="button" class="mitem" data-view="mps">MPS Report</button>
+        <button type="button" class="mitem" data-view="otr">OTR Report</button>
+        <button type="button" class="mitem" data-view="access" hidden>
+          Access
+        </button>
+      </nav>
+      <div id="menuScrim" hidden></div>
+
+      <main id="views">
+        <section id="viewMps" aria-label="MPS Report">
+          <div class="vbar">
+            <span class="pill" id="status"
+              ><i></i><em id="stext">&hellip;</em></span
+            >
+            <div class="toolbar">
+              <button
+                id="bCompare"
+                type="button"
+                aria-pressed="false"
+                title="Compare several reports"
+              >
+                Compare
+              </button>
+              <button id="bPause">Pause</button>
+              <button id="bFollow">Follow latest</button>
+              <button id="bReset" title="Return to the selected interval">
+                Reset view
+              </button>
+            </div>
+          </div>
+
+          <div id="dashView">
+            <section class="controls">
+              <div class="field">
+                <label>Server</label>
+                <div id="selServer"></div>
+              </div>
+              <div class="field">
+                <label>Exchange</label>
+                <div id="selExchange" class="sm"></div>
+              </div>
+              <div class="field">
+                <label>Segment</label>
+                <div id="selSegment" class="sm"></div>
+              </div>
+              <div class="field">
+                <label for="dateIn">Date</label>
+                <div class="datebox">
+                  <button
+                    id="dPrev"
+                    type="button"
+                    title="Previous available date"
+                    aria-label="Previous date"
+                  >
+                    &lsaquo;
+                  </button>
+                  <input type="date" id="dateIn" />
+                  <button
+                    id="dNext"
+                    type="button"
+                    title="Next available date"
+                    aria-label="Next date"
+                  >
+                    &rsaquo;
+                  </button>
+                </div>
+              </div>
+              <div class="field">
+                <label>Interval</label>
+                <div id="selInterval"></div>
+              </div>
+              <div class="field custom" id="customBox" hidden>
+                <div class="field">
+                  <label for="tFrom">From</label
+                  ><input type="time" id="tFrom" step="1" value="09:15:00" />
+                </div>
+                <div class="field">
+                  <label for="tTo">To</label
+                  ><input type="time" id="tTo" step="1" value="15:30:00" />
+                </div>
+              </div>
+              <div class="chip" id="fileChip">
+                <i></i><span id="fileText">&hellip;</span>
+              </div>
+            </section>
+
+            <div id="empty" class="empty" hidden>
+              <div class="mark">!</div>
+              <h3 id="emptyTitle"></h3>
+              <p id="emptyMsg"></p>
+              <div id="emptySug" class="sug"></div>
+            </div>
+
+            <div id="dash" class="loading">
+              <div class="stats">
+                <div
+                  class="card go"
+                  data-go="latest"
+                  tabindex="0"
+                  role="button"
+                  title="Click to jump to the latest sample"
+                >
+                  <span>Latest</span><b id="s-latest">&ndash;</b
+                  ><small id="s-latest-t">&nbsp;</small>
+                </div>
+                <div class="card">
+                  <span>Window avg</span><b id="s-wavg">&ndash;</b>
+                </div>
+                <div
+                  class="card go"
+                  data-go="wpeak"
+                  tabindex="0"
+                  role="button"
+                  title="Click to jump to the highest sample in the current window"
+                >
+                  <span>Window peak<i id="s-wmax-c" class="cnt"></i></span
+                  ><b id="s-wmax">&ndash;</b><small id="s-wmax-t">&nbsp;</small
+                  ><small id="s-wmax-h" class="hint"></small>
+                </div>
+                <div class="card">
+                  <span>Window total</span><b id="s-wsum">&ndash;</b>
+                </div>
+                <div class="card">
+                  <span>Overall avg</span><b id="s-avg">&ndash;</b>
+                </div>
+                <div
+                  class="card go peak"
+                  data-go="peak"
+                  tabindex="0"
+                  role="button"
+                  title="Click to jump to the highest sample overall"
+                >
+                  <span>Overall peak<i id="s-max-c" class="cnt"></i></span
+                  ><b id="s-max">&ndash;</b><small id="s-max-t">&nbsp;</small
+                  ><small id="s-max-h" class="hint"></small>
+                </div>
+                <div class="card">
+                  <span>Total messages</span><b id="s-total">&ndash;</b>
+                </div>
+                <div class="card">
+                  <span>Samples</span><b id="s-n">&ndash;</b>
+                </div>
+              </div>
+              <div id="range">&nbsp;</div>
+
+              <section class="panel srch">
+                <h2><b style="background: #3ddc84"></b>Find a message rate</h2>
+                <div class="srow">
+                  <input
+                    type="text"
+                    id="dQ"
+                    class="sq"
+                    autocomplete="off"
+                    spellcheck="false"
+                    maxlength="40"
+                    placeholder="150, 100-200, &gt;=150, &lt;50"
+                    aria-label="Message rate to find in the visible window"
+                    aria-describedby="dQmsg"
+                  />
+                  <button id="dQx" type="button" class="mini" hidden>
+                    Clear
+                  </button>
+                </div>
+                <div id="dQmsg" class="smsg" role="status"></div>
+                <div id="dQlist" class="ptimes sl"></div>
+              </section>
+
+              <section class="panel">
+                <h2><b style="background: #4cc9f0"></b>Line</h2>
+                <div class="cv"><canvas id="c-line"></canvas></div>
+              </section>
+              <section class="panel">
+                <h2><b style="background: #f9a03f"></b>Bar</h2>
+                <div class="cv"><canvas id="c-bar"></canvas></div>
+              </section>
+              <section class="panel">
+                <h2>
+                  <b style="background: #f07830"></b>Heatmap<span
+                    class="sub"
+                    id="hsub"
+                  ></span
+                  ><span class="legend"
+                    ><em>0</em><i></i><em id="hmax">&ndash;</em></span
+                  >
+                </h2>
+                <div class="cv"><canvas id="c-heat"></canvas></div>
+              </section>
+              <footer>
+                Scroll = zoom at cursor &middot; Drag = pan &middot;
+                Shift+scroll = pan &middot; Double-click = full range &middot;
+                click the top cards to jump to a sample &middot; all charts
+                share the same time axis
+              </footer>
+            </div>
+          </div>
+
+          <div id="cmpView" hidden>
+            <section class="controls">
+              <div class="field">
+                <label>Reports</label>
+                <div id="cmpPick"></div>
+              </div>
+              <div class="field">
+                <label>Interval</label>
+                <div id="cmpInterval"></div>
+              </div>
+              <div class="field custom" id="cmpCustom" hidden>
+                <div class="field">
+                  <label for="cmpFrom">From</label
+                  ><input type="time" id="cmpFrom" step="1" value="09:15:00" />
+                </div>
+                <div class="field">
+                  <label for="cmpTo">To</label
+                  ><input type="time" id="cmpTo" step="1" value="15:30:00" />
+                </div>
+              </div>
+              <div class="field">
+                <label>&nbsp;</label>
+                <button
+                  id="cmpRefresh"
+                  type="button"
+                  title="Reload the selected reports"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div class="chip" id="cmpChip">
+                <i></i><span id="cmpChipText">&hellip;</span>
+              </div>
+            </section>
+
+            <div id="cmpEmpty" class="empty" hidden>
+              <div class="mark">i</div>
+              <h3 id="cmpEmptyTitle"></h3>
+              <p id="cmpEmptyMsg"></p>
+            </div>
+
+            <div id="cmpBody" hidden>
+              <div id="cmpIssues" class="issues" hidden></div>
+              <section class="panel">
+                <h2>
+                  <b style="background: #4cc9f0"></b>Overlay (time of day)<span
+                    class="sub"
+                    id="cmpRange"
+                  ></span
+                  ><button id="cmpReset" type="button" class="mini">
+                    Reset zoom
+                  </button>
+                </h2>
+                <div id="cmpLegend" class="clegend"></div>
+                <div class="cv"><canvas id="c-cmp-line"></canvas></div>
+              </section>
+              <section class="panel">
+                <h2><b style="background: #3ddc84"></b>Summary</h2>
+                <div class="tblwrap">
+                  <table id="cmpTable" class="ctable"></table>
+                </div>
+              </section>
+              <section class="panel srch">
+                <h2><b style="background: #4cc9f0"></b>Find a message rate</h2>
+                <div class="srow">
+                  <input
+                    type="text"
+                    id="cQ"
+                    class="sq"
+                    autocomplete="off"
+                    spellcheck="false"
+                    maxlength="40"
+                    placeholder="150, 100-200, &gt;=150, &lt;50"
+                    aria-label="Message rate to find in the selected reports"
+                    aria-describedby="cQmsg"
+                  />
+                  <button id="cQx" type="button" class="mini" hidden>
+                    Clear
+                  </button>
+                </div>
+                <div id="cQmsg" class="smsg" role="status"></div>
+                <div class="tblwrap">
+                  <table id="cQtable" class="ctable stable"></table>
+                </div>
+              </section>
+              <section class="panel">
+                <h2><b style="background: #f9a03f"></b>Average per hour</h2>
+                <div class="cv"><canvas id="c-cmp-hour"></canvas></div>
+              </section>
+              <footer>
+                Scroll = zoom at cursor &middot; Drag = pan &middot;
+                Double-click = reset &middot; click a legend entry to hide or
+                show a series &middot; reports are snapshots, use Refresh to
+                reload
+              </footer>
+            </div>
+          </div>
+        </section>
+
+        <section id="viewOtr" aria-label="OTR Report" hidden></section>
+        <section id="viewAccess" aria-label="Access" hidden></section>
+      </main>
+    </div>
+
+    <script src="js/session.js"></script>
+    <script src="js/widgets.js"></script>
+    <script src="js/peaks.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/compare.js"></script>
+    <script src="js/shell.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/otr.js"></script>
+    <script src="js/access.js"></script>
+    <script src="js/chat.js"></script>
+  </body>
+</html>

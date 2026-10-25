@@ -1,0 +1,35 @@
+{
+  "title": "PROD PSFYVFD001",
+  "dir": "/else/home/oaa/MsgRatioPerSec",
+  "filename": "MPS_Greek_{ip}_{exchange}_{segment}_{date}.csv",
+  "legacy_filename": "MPS_Greek_{ip}_{date}.csv",
+  "date_format": "%d%m%Y",
+  "interval_ms": 1000,
+  "otr_dir": "/home/oaa/Greek_Prod_OTR_Data",
+  "otr_filename": "DealerWise_Order_Trade_Report_{ip}_{date}_{time}.csv",
+  "otr_threshold": 2000,
+  "otr_max_bytes": 67108864,
+  "otr_token_prefixes": {
+    "101": "NSE_CM",
+    "102": "NSE_FO",
+    "50": "NSE_CD",
+    "201": "BSE_CM",
+    "202": "BSE_FO"
+  },
+  "exchanges": [
+    { "code": "NSE", "name": "NSE" },
+    { "code": "BSE", "name": "BSE" }
+  ],
+  "segments": [
+    { "code": "CM", "name": "Cash" },
+    { "code": "FO", "name": "Futures & Options" },
+    { "code": "CD", "name": "Currency" }
+  ],
+  "servers": [{ "name": "Greek", "ip": "IPV4_Address" }],
+  "auth": { "mode": "off" },
+  "ai": {
+    "ollama_url": "http://127.0.0.1:11435",
+    "model": "qwen2.5:1.5b-instruct",
+    "duckdb": true
+  }
+}
